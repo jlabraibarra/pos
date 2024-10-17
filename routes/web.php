@@ -34,11 +34,19 @@ Route::prefix("login")->group( function(){
 
 Route::prefix("pos")->group( function(){
     Route::get('/', [PosController::class, 'index'])->middleware('auth');
+    Route::get('/getProductsDialog', [PosController::class, 'getProductsDialog'])->middleware('auth');
+    Route::get('/setFav', [PosController::class, 'setFavorite'])->middleware('auth');
+    Route::get('/getFavs', [PosController::class, 'getFavorites'])->middleware('auth');
+
 
     Route::prefix("product")->group( function(){
         Route::get('/', [PosController::class, 'getProducts'])->middleware('auth');
         Route::post('/data', [PosController::class, 'getDataProd'])->middleware('auth');
         Route::post('/save', [PosController::class, 'saveProduct'])->middleware('auth');
         Route::post('/delete', [PosController::class, 'deleteProduct'])->middleware('auth');
+    });
+
+    Route::prefix("inventory")->group( function(){
+        Route::get('/', [PosController::class, 'getInventory'])->middleware('auth');
     });
 });

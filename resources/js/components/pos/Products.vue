@@ -53,7 +53,7 @@
                     <th>{{formatNumber(prod.price)}}</th>
                     <th>{{formatNumber(prod.priceSale)}}</th>
                     <th>{{formatNumber(prod.priceSaleMin)}}</th>
-                    <th>{{(prod.inventory == 1) ? 0 : "∞"}}</th>
+                    <th>{{(prod.inventory == 1) ? prod.stock : "∞"}}</th>
                     <th>{{(prod.unit == 1) ? "Unidad" : "Por peso"}}</th>
                     <th class="d-flex">
                         <v-btn @click="this.$router.push({ name: 'add-product' , query: { id: prod.code }})" density="compact" class="mr-2">

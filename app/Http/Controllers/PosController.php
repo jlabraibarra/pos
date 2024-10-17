@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\ProductModel;
 use Illuminate\Http\Request;
+use App\Models\InventoryModel;
+use App\Models\FavoriteProductModel;
+use App\Models\InventoryHistoryModel;
 
 class PosController extends Controller
 {
@@ -17,11 +20,13 @@ class PosController extends Controller
     function getProducts(Request $request)
     {
         $strSearch = $request->input("strSearch");
-        $data = ProductModel::select();
+        $data = ProductModel::select("t_products.*","t_inventories.stock");
         if($strSearch != ""){
             $data->where("code","LIKE","%$strSearch%")
                     ->orWhere("name","LIKE","%$strSearch%");
         }
+
+        $data->leftJoin("t_inventories","t_inventories.id_product", "t_products.id");
 
         return $data->get();
     }
@@ -53,7 +58,7 @@ class PosController extends Controller
         $cost = $request->input("cost");
         $priceSale = $request->input("priceSale");
         $priceSaleMin = $request->input("priceSaleMin");
-        $inventory = (is_null($request->input("inventory")) || $request->input("inventory") == "") ? 0 : $request->input("inventory");
+        $stock = (is_null($request->input("inventory")) || $request->input("inventory") == "") ? 0 : $request->input("inventory");
         $unit = $request->input("unit");
 
         if($id == 0){
@@ -75,20 +80,34 @@ class PosController extends Controller
         $product->priceSale = $priceSale;
         $product->priceSaleMin = $priceSaleMin;
         $product->depto = $depto;
-        $product->inventory = $inventory;
+        $product->inventory = ($stock != 0) ? 1 : 0;
         $product->unit = $unit;
         try {
             $product->save();
-            return [
-                "status" => "success",
-                "msg" => ($id == 0) ? "Producto guardado" : "Producto actualizado"
-            ];
         } catch (\Throwable $th) {
             return [
                 "status" => "error",
                 "msg" => "Ocurrio un error, intentalo de nuevo mas tarde"
             ];
         }
+
+        if($id == 0 && $stock != 0){
+            $inventory = new InventoryModel();
+            $inventory->id_product = $product->id;
+            $inventory->stock = $stock;
+            $inventory->save();
+
+            $history = new InventoryHistoryModel();
+            $history->id_inventory = $inventory->id;
+            $history->stock = $stock;
+            $history->type = 1;
+            $history->save();
+        }
+
+        return [
+            "status" => "success",
+            "msg" => ($id == 0) ? "Producto guardado" : "Producto actualizado"
+        ];
     }
 
     function deleteProduct(Request $request)
@@ -117,5 +136,68 @@ class PosController extends Controller
             $check = ProductModel::where("code",$code)->first();
         } while (!is_null($check));
         return $code;
+    }
+
+    /* Inventarios */
+    function getInventory(Request $request)
+    {
+        $data = InventoryModel::select()->with("product");
+        return $data->get();
+    }
+
+    /* POS */
+    function getProductsDialog(Request $request)
+    {
+        $strSearchDialog = $request->input("strSearchDialog");
+        $data = ProductModel::select("t_products.*","t_inventories.stock","t_favorite_product.id as isFavorite");
+        if($strSearchDialog != ""){
+            $data->where("name","LIKE","%$strSearchDialog%");
+        }
+        $data->leftJoin("t_inventories","t_inventories.id_product", "t_products.id");
+        $data->leftJoin("t_favorite_product","t_favorite_product.id_product", "t_products.id");
+        return $data->get();
+    }
+
+    function setFavorite(Request $request)
+    {
+        $idProduct = $request->input("idProduct");
+        $check = FavoriteProductModel::where("id_product",$idProduct)->first();
+        if(is_null($check)){
+            $fav = new FavoriteProductModel();
+            $fav->id_product = $idProduct;
+            try {
+                $fav->save();
+                $data = [
+                    "status" => "success",
+                    "msg" => "Se agrego a favoritos el producto"
+                ];
+            } catch (\Throwable $th) {
+                $data = [
+                    "status" => "success",
+                    "msg" => "Ocurrio un error inesperado, intentalo de nuevo mas tarde"
+                ];
+            }
+        }else{
+            $fav = FavoriteProductModel::find($check->id);
+            try {
+                $fav->delete();
+                $data = [
+                    "status" => "success",
+                    "msg" => "Se removio de favoritos el producto"
+                ];
+            } catch (\Throwable $th) {
+                $data = [
+                    "status" => "success",
+                    "msg" => "Ocurrio un error inesperado, intentalo de nuevo mas tarde"
+                ];
+            }
+        }
+        return $data;
+    }
+
+    function getFavorites(Request $request)
+    {
+        $data = FavoriteProductModel::with("product")->get();
+        return $data;
     }
 }
